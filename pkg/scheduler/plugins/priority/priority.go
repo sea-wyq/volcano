@@ -82,7 +82,7 @@ func (pp *priorityPlugin) OnSessionOpen(ssn *framework.Session) {
 	}
 
 	ssn.AddJobOrderFn(pp.Name(), jobOrderFn)
-
+	// 判断能否进行任务抢占
 	preemptableFn := func(preemptor *api.TaskInfo, preemptees []*api.TaskInfo) ([]*api.TaskInfo, int) {
 		preemptorJob := ssn.Jobs[preemptor.Job]
 
@@ -112,7 +112,7 @@ func (pp *priorityPlugin) OnSessionOpen(ssn *framework.Session) {
 		return victims, util.Permit
 	}
 	ssn.AddPreemptableFn(pp.Name(), preemptableFn)
-
+	// 判断作业是否处在饥饿状态
 	jobStarvingFn := func(obj interface{}) bool {
 		ji := obj.(*api.JobInfo)
 		return ji.ReadyTaskNum()+ji.WaitingTaskNum() < int32(len(ji.Tasks))

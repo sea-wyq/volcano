@@ -49,6 +49,7 @@ func (gp *gangPlugin) Name() string {
 }
 
 func (gp *gangPlugin) OnSessionOpen(ssn *framework.Session) {
+	// 验证作业的有效性
 	validJobFn := func(obj interface{}) *api.ValidateResult {
 		job, ok := obj.(*api.JobInfo)
 		if !ok {
@@ -79,7 +80,7 @@ func (gp *gangPlugin) OnSessionOpen(ssn *framework.Session) {
 	}
 
 	ssn.AddJobValidFn(gp.Name(), validJobFn)
-
+	// 添加可抢占任务列表中
 	preemptableFn := func(preemptor *api.TaskInfo, preemptees []*api.TaskInfo) ([]*api.TaskInfo, int) {
 		var victims []*api.TaskInfo
 		jobOccupiedMap := map[api.JobID]int32{}
@@ -107,7 +108,7 @@ func (gp *gangPlugin) OnSessionOpen(ssn *framework.Session) {
 	// TODO(k82cn): Support preempt/reclaim batch job.
 	ssn.AddReclaimableFn(gp.Name(), preemptableFn)
 	ssn.AddPreemptableFn(gp.Name(), preemptableFn)
-
+	// 确定作业的调度顺序
 	jobOrderFn := func(l, r interface{}) int {
 		lv := l.(*api.JobInfo)
 		rv := r.(*api.JobInfo)
@@ -141,7 +142,7 @@ func (gp *gangPlugin) OnSessionOpen(ssn *framework.Session) {
 		}
 		return false
 	})
-
+	//判断作业是否可以流水线调度
 	pipelinedFn := func(obj interface{}) int {
 		ji := obj.(*api.JobInfo)
 		occupied := ji.WaitingTaskNum() + ji.ReadyTaskNum()
@@ -151,7 +152,7 @@ func (gp *gangPlugin) OnSessionOpen(ssn *framework.Session) {
 		return util.Reject
 	}
 	ssn.AddJobPipelinedFn(gp.Name(), pipelinedFn)
-
+	//判断作业是否处饥饿状态
 	jobStarvingFn := func(obj interface{}) bool {
 		ji := obj.(*api.JobInfo)
 		occupied := ji.WaitingTaskNum() + ji.ReadyTaskNum()

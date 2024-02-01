@@ -74,7 +74,7 @@ tiers:
 func (op *overcommitPlugin) OnSessionOpen(ssn *framework.Session) {
 	klog.V(5).Infof("Enter overcommit plugin ...")
 	defer klog.V(5).Infof("Leaving overcommit plugin.")
-
+	// 获取overCommitFactor系数
 	op.pluginArguments.GetFloat64(&op.overCommitFactor, overCommitFactor)
 	if op.overCommitFactor < 1.0 {
 		klog.Warningf("Invalid input %f for overcommit-factor, reason: overcommit-factor cannot be less than 1,"+
@@ -88,8 +88,10 @@ func (op *overcommitPlugin) OnSessionOpen(ssn *framework.Session) {
 	for _, node := range ssn.Nodes {
 		used.Add(node.Used)
 	}
+	// 获取机器总空闲资源
 	op.idleResource = op.totalResource.Clone().Multi(op.overCommitFactor).Sub(used)
 
+	// 计算作业需要的资源
 	for _, job := range ssn.Jobs {
 		// calculate inqueue job resources
 		if job.PodGroup.Status.Phase == scheduling.PodGroupInqueue && job.PodGroup.Spec.MinResources != nil {
@@ -106,7 +108,7 @@ func (op *overcommitPlugin) OnSessionOpen(ssn *framework.Session) {
 			op.inqueueResource.Add(inqueued)
 		}
 	}
-
+	// 判断作业能否进入调度队列
 	ssn.AddJobEnqueueableFn(op.Name(), func(obj interface{}) int {
 		job := obj.(*api.JobInfo)
 		idle := op.idleResource
@@ -128,7 +130,7 @@ func (op *overcommitPlugin) OnSessionOpen(ssn *framework.Session) {
 		ssn.RecordPodGroupEvent(job.PodGroup, v1.EventTypeNormal, string(scheduling.PodGroupUnschedulableType), "resource in cluster is overused")
 		return util.Reject
 	})
-
+	// 添加作业到调度队列
 	ssn.AddJobEnqueuedFn(op.Name(), func(obj interface{}) {
 		job := obj.(*api.JobInfo)
 		if job.PodGroup.Spec.MinResources == nil {
